@@ -33,6 +33,11 @@ struct ThreadData
 	ImgInfo imgInfo;
 };
 
+struct ThreadWrite
+{
+	int WorkingVariable = 0;
+};
+
 
 _RGBQUAD** readBmpFile(const string & fileName, _BITMAPFILEHEADER& fileHeader, _BITMAPINFOHEADER& fileInfoHeader)
 {
@@ -267,6 +272,17 @@ DWORD WINAPI ThreadProc(CONST LPVOID lpParam)
 {
 	ThreadData* threadData = (ThreadData*)lpParam;
 
+	/*
+	ThreadWrite *q = (ThreadWrite*)lpParam;
+	for (int i = 0; i < 100000; i++)
+	{
+		int j = q->WorkingVariable;
+		q->WorkingVariable = j + 1;
+	}
+	*/
+
+
+
 	for (unsigned i = threadData->startingIndex; i < threadData->height; ++i)
 	{
 		for (unsigned j = AREA; j < threadData->imgInfo.width - AREA; ++j)
@@ -295,6 +311,8 @@ DWORD WINAPI ThreadProc(CONST LPVOID lpParam)
 		}
 	}
 
+
+
 	ExitThread(0); // функция устанавливает код завершения потока в 0
 }
 
@@ -313,28 +331,37 @@ _RGBQUAD** blurFile(_RGBQUAD** rgbInfo, _BITMAPINFOHEADER& fileInfoHeader, const
 	threadsData->imgInfo.blurredRgbInfo = new _RGBQUAD*[threadsData->imgInfo.height];
 	unsigned threadHeight = (fileInfoHeader.biHeight - 2 * AREA) / threadsCount;
 	unsigned startingIndex = AREA;
-	unsigned affinityMask = (1 << processorsCount) - 1;
+
+	ThreadWrite threadWrite;
+	threadWrite.WorkingVariable = 0;
+
 
 
 	for (unsigned i = 0; i < threadsData->imgInfo.height; i++)
 	{
 		threadsData->imgInfo.blurredRgbInfo[i] = new _RGBQUAD[threadsData->imgInfo.width];
 	}
-
+	unsigned affinityMask = (1 << processorsCount) - 1;
 
 	for (unsigned i = 0; i < threadsCount; ++i)
 	{
 		threadsData[i].startingIndex = startingIndex;
 		threadsData[i].height = threadHeight;
 		threadsData[i].threadNumber = i + 1;
-		handles[i] = CreateThread(NULL, 0, &ThreadProc, &threadsData[i], CREATE_SUSPENDED, NULL);
+		handles[i] = CreateThread(NULL, 0, &ThreadProc, &(threadWrite), CREATE_SUSPENDED, NULL);
+
 		SetThreadAffinityMask(handles[i], affinityMask);
-		ResumeThread(handles[i]);
+
 		startingIndex += threadHeight;
 	}
 
+	for (int i = 0; i < threadsCount; i++)
+	{
+		ResumeThread(handles[i]);
+	}
 
 	WaitForMultipleObjects(threadsCount, handles, true, INFINITE);
+
 
 	return threadsData->imgInfo.blurredRgbInfo;
 
