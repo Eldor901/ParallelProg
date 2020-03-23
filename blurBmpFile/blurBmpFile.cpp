@@ -272,16 +272,6 @@ DWORD WINAPI ThreadProc(CONST LPVOID lpParam)
 {
 	ThreadData* threadData = (ThreadData*)lpParam;
 
-	/*
-	ThreadWrite *q = (ThreadWrite*)lpParam;
-	for (int i = 0; i < 100000; i++)
-	{
-		int j = q->WorkingVariable;
-		q->WorkingVariable = j + 1;
-	}
-	*/
-
-
 
 	for (unsigned i = threadData->startingIndex; i < threadData->height; ++i)
 	{
@@ -325,10 +315,6 @@ _RGBQUAD** blurFile(_RGBQUAD** rgbInfo, _BITMAPINFOHEADER& fileInfoHeader, const
 	HANDLE* handles = new HANDLE[threadsCount];
 	ThreadData* threadsData = new ThreadData[threadsCount];
 
-	threadsData->imgInfo.width = fileInfoHeader.biWidth;
-	threadsData->imgInfo.height = fileInfoHeader.biHeight;
-	threadsData->imgInfo.initialRgbInfo = rgbInfo;
-	threadsData->imgInfo.blurredRgbInfo = new _RGBQUAD*[threadsData->imgInfo.height];
 	unsigned threadHeight = (fileInfoHeader.biHeight - 2 * AREA) / threadsCount;
 	unsigned startingIndex = AREA;
 
@@ -336,19 +322,28 @@ _RGBQUAD** blurFile(_RGBQUAD** rgbInfo, _BITMAPINFOHEADER& fileInfoHeader, const
 	threadWrite.WorkingVariable = 0;
 
 
+	_RGBQUAD** rgbblur = new _RGBQUAD*[fileInfoHeader.biHeight];
 
-	for (unsigned i = 0; i < threadsData->imgInfo.height; i++)
+
+	for (unsigned i = 0; i < fileInfoHeader.biHeight; i++)
 	{
-		threadsData->imgInfo.blurredRgbInfo[i] = new _RGBQUAD[threadsData->imgInfo.width];
+		rgbblur[i] = new _RGBQUAD[fileInfoHeader.biWidth];
 	}
+
 	unsigned affinityMask = (1 << processorsCount) - 1;
 
 	for (unsigned i = 0; i < threadsCount; ++i)
 	{
+
+		threadsData[i].imgInfo.width = fileInfoHeader.biWidth;
+		threadsData[i].imgInfo.height = fileInfoHeader.biHeight;
+		threadsData[i].imgInfo.initialRgbInfo = rgbInfo;
+		threadsData[i].imgInfo.blurredRgbInfo = rgbblur;
+
 		threadsData[i].startingIndex = startingIndex;
 		threadsData[i].height = threadHeight;
 		threadsData[i].threadNumber = i + 1;
-		handles[i] = CreateThread(NULL, 0, &ThreadProc, &(threadWrite), CREATE_SUSPENDED, NULL);
+		handles[i] = CreateThread(NULL, 0, &ThreadProc, &(threadsData[i]), CREATE_SUSPENDED, NULL);
 
 		SetThreadAffinityMask(handles[i], affinityMask);
 
@@ -376,6 +371,7 @@ int main(int argc, char *argv[])
 		cout << "Usage: " << " program.exe input_file_name output_file_name" << endl;
 		return -1;
 	}
+	clock_t start, stop;
 
 
 	_BITMAPFILEHEADER fileHeader;
@@ -391,11 +387,12 @@ int main(int argc, char *argv[])
 		_RGBQUAD** blurredRgbInfo = blurFile(rgbInfo, fileInfoHeader, threadsCount, processorsCount);
 
 		writeBmpFile(argv[2], blurredRgbInfo, fileHeader, fileInfoHeader);
+
 	}
 	catch (exception & e)
 	{
 		cout << e.what();
 	}
-	cout << ((float)clock()) / CLOCKS_PER_SEC << endl;
 
+	cout << ((float)clock()) / CLOCKS_PER_SEC << endl;
 }
