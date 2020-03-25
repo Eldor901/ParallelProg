@@ -1,5 +1,4 @@
-﻿
-#include "pch.h"
+﻿#include "pch.h"
 #include <iostream>
 
 #include <exception>
@@ -273,7 +272,7 @@ DWORD WINAPI ThreadProc(CONST LPVOID lpParam)
 	ThreadData* threadData = (ThreadData*)lpParam;
 
 
-	for (unsigned i = threadData->startingIndex; i < threadData->height; ++i)
+	for (unsigned i = threadData->startingIndex; i < threadData->startingIndex + threadData->height; ++i)
 	{
 		for (unsigned j = AREA; j < threadData->imgInfo.width - AREA; ++j)
 		{
@@ -358,7 +357,7 @@ _RGBQUAD** blurFile(_RGBQUAD** rgbInfo, _BITMAPINFOHEADER& fileInfoHeader, const
 	WaitForMultipleObjects(threadsCount, handles, true, INFINITE);
 
 
-	return threadsData->imgInfo.blurredRgbInfo;
+	return rgbblur;
 
 }
 

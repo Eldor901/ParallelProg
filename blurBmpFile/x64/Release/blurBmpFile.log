@@ -1,8 +1,10 @@
 ﻿  pch.cpp
   blurBmpFile.cpp
-d:\paralelprogramming\blurbmpfile\blurbmpfile.cpp(353): warning C4018: '<': signed/unsigned mismatch
-d:\paralelprogramming\blurbmpfile\blurbmpfile.cpp(374): warning C4101: 'start': unreferenced local variable
-d:\paralelprogramming\blurbmpfile\blurbmpfile.cpp(374): warning C4101: 'stop': unreferenced local variable
+d:\paralelprogramming\blurbmpfile\blurbmpfile.cpp(364): warning C4018: '<': signed/unsigned mismatch
+d:\paralelprogramming\blurbmpfile\blurbmpfile.cpp(379): warning C4244: 'initializing': conversion from 'clock_t' to 'float', possible loss of data
+d:\paralelprogramming\blurbmpfile\blurbmpfile.cpp(409): warning C4244: 'initializing': conversion from 'clock_t' to 'float', possible loss of data
+d:\paralelprogramming\blurbmpfile\blurbmpfile.cpp(386): warning C4101: 'start': unreferenced local variable
+d:\paralelprogramming\blurbmpfile\blurbmpfile.cpp(386): warning C4101: 'stop': unreferenced local variable
   Generating code
   All 201 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
   Finished generating code
