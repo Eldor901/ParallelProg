@@ -6,7 +6,7 @@
 #include <thread>
 #include <string>
 #include "blurBmpFile.h"
-#include  <windows.h>
+#include <windows.h>
 #include <time.h>
 using namespace  std;
 
@@ -270,8 +270,9 @@ unsigned char bitextract(const unsigned int byte, const unsigned int mask) {
 DWORD WINAPI ThreadProc(CONST LPVOID lpParam)
 {
 	ThreadData* threadData = (ThreadData*)lpParam;
+	ofstream fileOut(to_string(threadData->threadNumber) + ".txt");
 
-
+	float prevTime = 0;
 	for (unsigned i = threadData->startingIndex; i < threadData->startingIndex + threadData->height; ++i)
 	{
 		for (unsigned j = AREA; j < threadData->imgInfo.width - AREA; ++j)
@@ -297,6 +298,13 @@ DWORD WINAPI ThreadProc(CONST LPVOID lpParam)
 			threadData->imgInfo.blurredRgbInfo[i][j].rgbBlue = blue / (AREA * 5);
 			threadData->imgInfo.blurredRgbInfo[i][j].rgbGreen = green / (AREA * 5);
 
+
+			float curtime = ((float)clock()) / CLOCKS_PER_SEC;
+			if (curtime > prevTime)
+			{
+				fileOut << curtime << endl;
+				prevTime = curtime;
+			}
 		}
 	}
 
@@ -308,7 +316,7 @@ DWORD WINAPI ThreadProc(CONST LPVOID lpParam)
 
 
 
-_RGBQUAD** blurFile(_RGBQUAD** rgbInfo, _BITMAPINFOHEADER& fileInfoHeader, const int unsigned threadsCount, const int unsigned processorsCount)
+_RGBQUAD** blurFile(_RGBQUAD** rgbInfo, _BITMAPINFOHEADER& fileInfoHeader, const int unsigned threadsCount, const int unsigned processorsCount, int* threadsPriorities)
 {
 
 	HANDLE* handles = new HANDLE[threadsCount];
@@ -346,6 +354,9 @@ _RGBQUAD** blurFile(_RGBQUAD** rgbInfo, _BITMAPINFOHEADER& fileInfoHeader, const
 
 		SetThreadAffinityMask(handles[i], affinityMask);
 
+		SetThreadPriority(handles[i], threadsPriorities[i]);
+
+
 		startingIndex += threadHeight;
 	}
 
@@ -361,21 +372,47 @@ _RGBQUAD** blurFile(_RGBQUAD** rgbInfo, _BITMAPINFOHEADER& fileInfoHeader, const
 
 }
 
+int* getPrioritiesforThreads(int threadsCount, char* argv[])
+{
+	int* threadsPriorities = new int[threadsCount];
+
+	for (unsigned i = 0; i < threadsCount; ++i)
+	{
+		if (string(argv[5 + i]) == "above_normal")
+		{
+			threadsPriorities[i] = THREAD_PRIORITY_ABOVE_NORMAL;
+		}
+		else if (string(argv[5 + i]) == "normal")
+		{
+			threadsPriorities[i] = THREAD_PRIORITY_NORMAL;
+		}
+		else if (string(argv[5 + i]) == "below_normal")
+		{
+			threadsPriorities[i] = THREAD_PRIORITY_BELOW_NORMAL;
+		}
+		else
+		{
+			throw runtime_error("You must specify a priority  below_normal, normal, above_normal");
+		}
+	}
+
+	return threadsPriorities;
+}
+
 
 
 int main(int argc, char *argv[])
 {
-	if (argc != 5)
+	if (argc < 5)
 	{
-		cout << "Usage: " << " program.exe input_file_name output_file_name" << endl;
+		cout << "Usage: " << " program.exe input_file_name output_file_name threads processors" << endl;
 		return -1;
 	}
-	clock_t start, stop;
 
 
 	_BITMAPFILEHEADER fileHeader;
 	_BITMAPINFOHEADER fileInfoHeader;
-
+	int* threadsPriorities;
 
 	try
 	{
@@ -383,7 +420,16 @@ int main(int argc, char *argv[])
 		const unsigned int threadsCount = stoi(argv[3]);
 		const unsigned int processorsCount = stoi(argv[4]);
 
-		_RGBQUAD** blurredRgbInfo = blurFile(rgbInfo, fileInfoHeader, threadsCount, processorsCount);
+		if (argc < 5 + threadsCount)
+		{
+			cout << "You must specify priority for each thread" << endl;
+			return -1;
+		}
+
+		threadsPriorities = getPrioritiesforThreads(threadsCount, argv);
+
+
+		_RGBQUAD** blurredRgbInfo = blurFile(rgbInfo, fileInfoHeader, threadsCount, processorsCount, threadsPriorities);
 
 		writeBmpFile(argv[2], blurredRgbInfo, fileHeader, fileInfoHeader);
 
