@@ -1,19 +1,19 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LocalDebuggerCommandArguments>nature.bmp blurNature.bmp 3 3 above_normal normal below_normal</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>process 8 D:\ParalelProgramming\blurBmpFile\x64\pictures\ D:\ParalelProgramming\blurBmpFile\x64\bluredpictures 8</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <LocalDebuggerCommandArguments>nature.bmp blurNature.bmp 3 3 above_normal normal below_normal</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>process 8 D:\ParalelProgramming\blurBmpFile\x64\pictures\ D:\ParalelProgramming\blurBmpFile\x64\bluredpictures 8</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerCommandArguments>nature.bmp blurNature.bmp 3 3 above_normal normal below_normal</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>process 8 D:\ParalelProgramming\blurBmpFile\x64\pictures\ D:\ParalelProgramming\blurBmpFile\x64\bluredpictures 8</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerCommandArguments>nature.bmp blurNature.bmp 3 3 above_normal normal below_normal</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>process 8 D:\ParalelProgramming\blurBmpFile\x64\pictures\ D:\ParalelProgramming\blurBmpFile\x64\bluredpictures 8</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
 </Project>

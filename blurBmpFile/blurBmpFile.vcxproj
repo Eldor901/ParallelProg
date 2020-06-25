@@ -151,8 +151,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Blur.h" />
     <ClInclude Include="blurBmpFile.h" />
+    <ClInclude Include="ITask.h" />
+    <ClInclude Include="IWorker.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="Pool.h" />
+    <ClInclude Include="ThreadProc.h" />
+    <ClInclude Include="Worker.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="blurBmpFile.cpp" />

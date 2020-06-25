@@ -2,6 +2,11 @@
 #include <fstream>
 #include <string>
 
+int const AREA = 50;
+const int TITLEMINLENGTH = 4;
+
+
+
 
 struct _CIEXYZ {
 	int ciexyzX;

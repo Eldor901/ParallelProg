@@ -8,34 +8,14 @@
 #include "blurBmpFile.h"
 #include <windows.h>
 #include <time.h>
+#include <vector>
+#include <algorithm>
+#include "ITask.h"
+#include "Worker.h"
+#include  "Blur.h"
+#include "Pool.h"
 using namespace  std;
 
-
-
-int const AREA = 50;
-
-
-struct ImgInfo
-{
-	unsigned width;
-	unsigned height;
-	_RGBQUAD** initialRgbInfo;
-	_RGBQUAD** blurredRgbInfo;
-
-};
-
-struct ThreadData
-{
-	unsigned startingIndex;
-	unsigned height;
-	unsigned threadNumber;
-	ImgInfo imgInfo;
-};
-
-struct ThreadWrite
-{
-	int WorkingVariable = 0;
-};
 
 
 _RGBQUAD** readBmpFile(const string & fileName, _BITMAPFILEHEADER& fileHeader, _BITMAPINFOHEADER& fileInfoHeader)
@@ -266,13 +246,11 @@ unsigned char bitextract(const unsigned int byte, const unsigned int mask) {
 }
 
 
-
+/*
 DWORD WINAPI ThreadProc(CONST LPVOID lpParam)
 {
 	ThreadData* threadData = (ThreadData*)lpParam;
-	ofstream fileOut(to_string(threadData->threadNumber) + ".txt");
 
-	float prevTime = 0;
 	for (unsigned i = threadData->startingIndex; i < threadData->startingIndex + threadData->height; ++i)
 	{
 		for (unsigned j = AREA; j < threadData->imgInfo.width - AREA; ++j)
@@ -297,14 +275,6 @@ DWORD WINAPI ThreadProc(CONST LPVOID lpParam)
 			threadData->imgInfo.blurredRgbInfo[i][j].rgbRed = red / (AREA * 5);
 			threadData->imgInfo.blurredRgbInfo[i][j].rgbBlue = blue / (AREA * 5);
 			threadData->imgInfo.blurredRgbInfo[i][j].rgbGreen = green / (AREA * 5);
-
-
-			float curtime = ((float)clock()) / CLOCKS_PER_SEC;
-			if (curtime > prevTime)
-			{
-				fileOut << curtime << endl;
-				prevTime = curtime;
-			}
 		}
 	}
 
@@ -372,72 +342,226 @@ _RGBQUAD** blurFile(_RGBQUAD** rgbInfo, _BITMAPINFOHEADER& fileInfoHeader, const
 
 }
 
-int* getPrioritiesforThreads(int threadsCount, char* argv[])
-{
-	int* threadsPriorities = new int[threadsCount];
+*/
 
-	for (unsigned i = 0; i < threadsCount; ++i)
+vector<_RGBQUAD**> blurImages(vector<_RGBQUAD**> &initialRgbInfos, vector<_BITMAPINFOHEADER> &fileInfoHeaders, unsigned & blocksCount)
+{
+	vector<Worker> workers;
+	vector<ITask*> tasks;
+	vector<_RGBQUAD**> blurredRgbInfos;
+
+	for (int i = 0; i < fileInfoHeaders.size(); ++i)
 	{
-		if (string(argv[5 + i]) == "above_normal")
+
+		ThreadData* threadsData = new ThreadData[blocksCount];
+		unsigned threadHeight = (fileInfoHeaders[i].biHeight - 2 * AREA) / blocksCount;
+		unsigned startingIndex = AREA;
+
+
+		_RGBQUAD** rgbblur = new _RGBQUAD*[fileInfoHeaders[i].biHeight];
+		for (unsigned j = 0; j < fileInfoHeaders[i].biHeight; j++)
 		{
-			threadsPriorities[i] = THREAD_PRIORITY_ABOVE_NORMAL;
+			rgbblur[j] = new _RGBQUAD[fileInfoHeaders[i].biWidth];
 		}
-		else if (string(argv[5 + i]) == "normal")
+		blurredRgbInfos.push_back(rgbblur);
+
+
+		for (unsigned j = 0; j < blocksCount; ++j)
 		{
-			threadsPriorities[i] = THREAD_PRIORITY_NORMAL;
+
+			threadsData[j].imgInfo.width = fileInfoHeaders[i].biWidth;
+			threadsData[j].imgInfo.height = fileInfoHeaders[i].biHeight;
+			threadsData[j].imgInfo.initialRgbInfo = initialRgbInfos[i];
+			threadsData[j].imgInfo.blurredRgbInfo = blurredRgbInfos[i];
+
+			threadsData[j].startingIndex = startingIndex;
+			threadsData[j].height = threadHeight;
+			threadsData[j].threadNumber = j + 1;
+
+			workers.push_back(Worker());
+			tasks.push_back(new Blur(&(threadsData[j])));
+
+			startingIndex += threadHeight;
 		}
-		else if (string(argv[5 + i]) == "below_normal")
-		{
-			threadsPriorities[i] = THREAD_PRIORITY_BELOW_NORMAL;
-		}
-		else
-		{
-			throw runtime_error("You must specify a priority  below_normal, normal, above_normal");
-		}
+
 	}
 
-	return threadsPriorities;
+	//start time
+	float start = clock();
+
+	for (int i = 0; i < workers.size(); i++)
+	{
+		workers[i].ExecuteTask(tasks[i]);
+	}
+
+	for (Worker worker : workers)
+	{
+		worker.Wait();
+	}
+
+	//end time
+	float end = clock();
+
+
+	double seconds = (double)(end - start) / CLOCKS_PER_SEC;
+	cout << seconds << endl;
+
+	return blurredRgbInfos;
 }
 
+vector<_RGBQUAD**> blurImagesWithPool(vector<_RGBQUAD**> initialRgbInfos, vector<_BITMAPINFOHEADER> fileInfoHeaders, unsigned blocksCount, unsigned threadsCount)
+{
+
+	vector<ITask*> tasks;
+	vector<_RGBQUAD**> blurredRgbInfos;
+
+	for (int i = 0; i < fileInfoHeaders.size(); ++i)
+	{
+
+		ThreadData* threadsData = new ThreadData[blocksCount];
+		unsigned threadHeight = (fileInfoHeaders[i].biHeight - 2 * AREA) / blocksCount;
+		unsigned startingIndex = AREA;
+
+
+		_RGBQUAD** rgbblur = new _RGBQUAD*[fileInfoHeaders[i].biHeight];
+		for (unsigned j = 0; j < fileInfoHeaders[i].biHeight; j++)
+		{
+			rgbblur[j] = new _RGBQUAD[fileInfoHeaders[i].biWidth];
+		}
+		blurredRgbInfos.push_back(rgbblur);
+
+
+		for (unsigned j = 0; j < blocksCount; ++j)
+		{
+
+			threadsData[j].imgInfo.width = fileInfoHeaders[i].biWidth;
+			threadsData[j].imgInfo.height = fileInfoHeaders[i].biHeight;
+			threadsData[j].imgInfo.initialRgbInfo = initialRgbInfos[i];
+			threadsData[j].imgInfo.blurredRgbInfo = blurredRgbInfos[i];
+
+			threadsData[j].startingIndex = startingIndex;
+			threadsData[j].height = threadHeight;
+			threadsData[j].threadNumber = j + 1;
+
+			tasks.push_back(new Blur(&(threadsData[j])));
+
+			startingIndex += threadHeight;
+		}
+
+	}
+
+	Pool pool(tasks, threadsCount);
+
+	float start = clock();
+	pool.ExecuteTasks();
+	float end = clock();
+
+
+	double seconds = (double)(end - start) / CLOCKS_PER_SEC;
+	cout << seconds << endl;
+
+	return blurredRgbInfos;
+}
+
+void readBmpFileFromFolder(vector<string> &fileNames, vector<_BITMAPFILEHEADER> &fileHeaders,
+	vector<_BITMAPINFOHEADER> &fileInfoHeaders, vector<_RGBQUAD**> &rgbInfos, string &fileName, char *argv[])
+{
+	_BITMAPFILEHEADER fileHeader;
+	_BITMAPINFOHEADER fileInfoHeader;
+	_RGBQUAD** rgbInfo;
+
+	try
+	{
+		rgbInfo = readBmpFile(string(argv[3]) + "\\" + fileName, fileHeader, fileInfoHeader);
+
+		fileNames.push_back(fileName);
+		fileHeaders.push_back(fileHeader);
+		fileInfoHeaders.push_back(fileInfoHeader);
+		rgbInfos.push_back(rgbInfo);
+	}
+	catch (const runtime_error& e)
+	{
+		cout << e.what() << endl;
+	}
+}
 
 
 int main(int argc, char *argv[])
 {
 	if (argc < 5)
 	{
-		cout << "Usage: " << " program.exe input_file_name output_file_name threads processors" << endl;
+		cout << "Usage: " << " process|pool amoutofBlocks(number) inputDirictory(directory path) outputDirectory(directory path) threads_count(number)" << endl;
 		return -1;
 	}
 
 
-	_BITMAPFILEHEADER fileHeader;
-	_BITMAPINFOHEADER fileInfoHeader;
-	int* threadsPriorities;
+	WIN32_FIND_DATAA fileData;
+	HANDLE const find = FindFirstFileA(string(string(argv[3]) + "\\*").data(), &fileData);
+	vector<string> fileNames;
+	vector<_BITMAPFILEHEADER> fileHeaders;
+	vector<_BITMAPINFOHEADER> fileInfoHeaders;
+	vector<_RGBQUAD**> rgbInfos;
 
-	try
+
+	if (INVALID_HANDLE_VALUE != find)
 	{
-		_RGBQUAD** rgbInfo = readBmpFile(argv[1], fileHeader, fileInfoHeader);
-		const unsigned int threadsCount = stoi(argv[3]);
-		const unsigned int processorsCount = stoi(argv[4]);
+		unsigned blocksCount = stoi(argv[2]);
+		unsigned threadsCount = stoi(argv[5]);
 
-		if (argc < 5 + threadsCount)
+
+
+		do
 		{
-			cout << "You must specify priority for each thread" << endl;
-			return -1;
+			string fileName = &fileData.cFileName[0];
+
+			if (fileName.size() > TITLEMINLENGTH)
+			{
+				readBmpFileFromFolder(fileNames, fileHeaders, fileInfoHeaders, rgbInfos, fileName, argv);
+
+			}
+		} while (FindNextFileA(find, &fileData) != NULL);
+		FindClose(find);
+
+		string method = argv[1];
+		transform(method.begin(), method.end(), method.begin(), ::tolower);
+
+
+		vector<_RGBQUAD**> blurredRgbInfos;
+		if (string(argv[1]) == "process")
+		{
+
+			blurredRgbInfos = blurImages(rgbInfos, fileInfoHeaders, blocksCount);
+
+		}
+		else if (string(argv[1]) == "pool")
+		{
+
+			blurredRgbInfos = blurImagesWithPool(rgbInfos, fileInfoHeaders, blocksCount, threadsCount);
+
+		}
+		else
+		{
+
+			cout << "Usage: " << " process|pool amoutofBlocks(number) inputDirictory(directory path) outputDirectory(directory path) threads_count(number)" << endl;
 		}
 
-		threadsPriorities = getPrioritiesforThreads(threadsCount, argv);
 
+		for (int i = 0; i < fileHeaders.size(); i++)
+		{
+			writeBmpFile(string(argv[4]) + "/" + fileNames[i], blurredRgbInfos[i], fileHeaders[i], fileInfoHeaders[i]);
+		}
 
-		_RGBQUAD** blurredRgbInfo = blurFile(rgbInfo, fileInfoHeader, threadsCount, processorsCount, threadsPriorities);
+		try
+		{
+			unsigned blocksAmount = stoi(argv[2]);
+			unsigned threadsCount = stoi(argv[5]);
+		}
+		catch (exception & e)
+		{
+			cout << e.what();
+			cout << "Usage: " << " process|pool amoutofBlocks(number) inputDirictory(directory path) outputDirectory(directory path) threads_count(number)" << endl;
+		}
 
-		writeBmpFile(argv[2], blurredRgbInfo, fileHeader, fileInfoHeader);
-
+		//cout << ((float)clock()) / CLOCKS_PER_SEC << endl;
 	}
-	catch (exception & e)
-	{
-		cout << e.what();
-	}
-
-	cout << ((float)clock()) / CLOCKS_PER_SEC << endl;
 }
