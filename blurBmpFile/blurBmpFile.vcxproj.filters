@@ -21,6 +21,12 @@
     <ClInclude Include="blurBmpFile.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="LogBuffer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="LogFileWriter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">

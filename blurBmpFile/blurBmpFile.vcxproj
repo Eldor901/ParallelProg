@@ -152,6 +152,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="blurBmpFile.h" />
+    <ClInclude Include="LogBuffer.h" />
+    <ClInclude Include="LogFileWriter.h" />
     <ClInclude Include="pch.h" />
   </ItemGroup>
   <ItemGroup>

@@ -8,11 +8,16 @@
 #include "blurBmpFile.h"
 #include <windows.h>
 #include <time.h>
+#include "LogBuffer.h"
+#include "LogFileWriter.h"
 using namespace  std;
-
+CRITICAL_SECTION CRITICALSECTION;
+LogBuffer<float> LOGBUFFER;
+LogFileWriter<float> FILEWRITER;
 
 
 int const AREA = 50;
+int const BUFFERSIZE = 10000;
 
 
 struct ImgInfo
@@ -36,6 +41,8 @@ struct ThreadWrite
 {
 	int WorkingVariable = 0;
 };
+
+
 
 
 _RGBQUAD** readBmpFile(const string & fileName, _BITMAPFILEHEADER& fileHeader, _BITMAPINFOHEADER& fileInfoHeader)
@@ -251,7 +258,6 @@ unsigned char bitextract(const unsigned int byte, const unsigned int mask) {
 		return 0;
 	}
 
-	// определение количества нулевых бит справа от маски
 	int
 		maskBufer = mask,
 		maskPadding = 0;
@@ -263,6 +269,15 @@ unsigned char bitextract(const unsigned int byte, const unsigned int mask) {
 
 	// применение маски и смещение
 	return (byte & mask) >> maskPadding;
+}
+
+
+DWORD WINAPI logSizeMonitoringThread(LPVOID lpParam)
+{
+	LogBuffer<float>* tmpBuffer = (LogBuffer<float>*)lpParam;
+	FILEWRITER.write(*tmpBuffer);
+	delete tmpBuffer;
+	ExitThread(0);
 }
 
 
@@ -300,11 +315,20 @@ DWORD WINAPI ThreadProc(CONST LPVOID lpParam)
 
 
 			float curtime = ((float)clock()) / CLOCKS_PER_SEC;
-			if (curtime > prevTime)
+
+			fileOut << curtime << endl;
+			LOGBUFFER.Log(curtime);
+			prevTime = curtime;
+
+
+			EnterCriticalSection(&CRITICALSECTION);
+			if (LOGBUFFER.GetSize() >= BUFFERSIZE)
 			{
-				fileOut << curtime << endl;
-				prevTime = curtime;
+				LogBuffer<float>* tmpBuffer = new LogBuffer<float>(move(LOGBUFFER));
+				HANDLE handle = CreateThread(NULL, 0, &logSizeMonitoringThread, tmpBuffer, CREATE_SUSPENDED, NULL);
+				ResumeThread(handle);
 			}
+			LeaveCriticalSection(&CRITICALSECTION);
 		}
 	}
 
@@ -318,6 +342,11 @@ DWORD WINAPI ThreadProc(CONST LPVOID lpParam)
 
 _RGBQUAD** blurFile(_RGBQUAD** rgbInfo, _BITMAPINFOHEADER& fileInfoHeader, const int unsigned threadsCount, const int unsigned processorsCount, int* threadsPriorities)
 {
+
+	if (!InitializeCriticalSectionAndSpinCount(&CRITICALSECTION, 0x00000400))
+	{
+		throw runtime_error("Failed to initialize critical section");
+	}
 
 	HANDLE* handles = new HANDLE[threadsCount];
 	ThreadData* threadsData = new ThreadData[threadsCount];
@@ -336,6 +365,8 @@ _RGBQUAD** blurFile(_RGBQUAD** rgbInfo, _BITMAPINFOHEADER& fileInfoHeader, const
 	{
 		rgbblur[i] = new _RGBQUAD[fileInfoHeader.biWidth];
 	}
+
+	LOGBUFFER.AddCriticalSection(&CRITICALSECTION);
 
 	unsigned affinityMask = (1 << processorsCount) - 1;
 
@@ -366,6 +397,13 @@ _RGBQUAD** blurFile(_RGBQUAD** rgbInfo, _BITMAPINFOHEADER& fileInfoHeader, const
 	}
 
 	WaitForMultipleObjects(threadsCount, handles, true, INFINITE);
+
+	DeleteCriticalSection(&CRITICALSECTION);
+
+
+	LogBuffer<float>* tmpBuffer = new LogBuffer<float>(move(LOGBUFFER));
+	HANDLE handle = CreateThread(NULL, 0, &logSizeMonitoringThread, tmpBuffer, CREATE_SUSPENDED, NULL);
+	ResumeThread(handle);
 
 
 	return rgbblur;
